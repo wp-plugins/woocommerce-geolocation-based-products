@@ -3,7 +3,7 @@
 Plugin Name: WooCommerce Geolocation Based Products
 Plugin URI: http://splashingpixels.com/
 Description: A WooCommerce plugin/extension that adds ability for your store to show/hide products based on visitors geolocation.
-Version: 1.1.0
+Version: 1.1.1
 Author: SplashingPixels / Roy Ho
 
 Copyright: (c) 2014 Roy Ho
@@ -36,6 +36,9 @@ class WC_Geolocation_Based_Products {
 	public function __construct() {
 		
 		add_action( 'init', array( $this, 'load_plugin_textdomain' ) );
+
+		// Required functions
+		require_once( 'woo-includes/woo-functions.php' );
 
 		if ( is_woocommerce_active() ) {
 			if ( is_admin() ) {
@@ -76,7 +79,7 @@ class WC_Geolocation_Based_Products {
 	 * @return string
 	 */
 	public function woocommerce_missing_notice() {
-		echo '<div class="error"><p>' . sprintf( __( 'WooCommerce Geolocation Based Products Plugin requires WooCommerce to be installed and active.', 'woocommerce-geolocation-based-products' ), '<a href="http://www.woothemes.com/woocommerce/" target="_blank">WooCommerce</a>' ) . '</p></div>';
+		echo '<div class="error"><p>' . sprintf( __( 'WooCommerce Geolocation Based Products Plugin requires WooCommerce to be installed and active. %s', 'woocommerce-geolocation-based-products' ), '<a href="http://www.woothemes.com/woocommerce/" target="_blank">WooCommerce</a>' ) . '</p></div>';
 	}
 
 	/**
