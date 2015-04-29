@@ -22,7 +22,17 @@ class WC_Geolocation_Based_Products_Frontend {
 		add_action( 'pre_get_posts', array( $this, 'filter_query' ) );
 
 		// hide from category view
-		add_filter( 'woocommerce_product_subcategories_args', array( $this, 'hide_categories_view' ) );
+		add_filter( 'woocommerce_product_subcategories_args', array( $this, 'hide_from_categories_view' ) );
+
+		// hide from category widget
+		add_filter( 'woocommerce_product_categories_widget_dropdown_args', array( $this, 'hide_from_categories_view' ) );
+		add_filter( 'woocommerce_product_categories_widget_args', array( $this, 'hide_from_categories_view' ) );
+
+		// hide from products widget
+		add_filter( 'woocommerce_products_widget_query_args', array( $this, 'hide_from_products_widget' ) );
+
+		// hide products from menu
+		add_filter( 'wp_nav_menu_objects', array( $this, 'hide_products_from_menu' ), 10, 2 );
 
 		$this->location_data = $this->get_location_data();
 
@@ -146,7 +156,7 @@ class WC_Geolocation_Based_Products_Frontend {
 	}
 
 	/**
-	 * checks if country matches current user's country
+	 * Checks if country matches current user's country
 	 *
 	 * @access public
 	 * @since 1.1.0
@@ -158,13 +168,13 @@ class WC_Geolocation_Based_Products_Frontend {
 
 		if ( isset( $saved_country ) && ! empty( $saved_country ) && strtolower( $saved_country ) === strtolower( $user_country ) ) {
 			return true;
-		} else {
-			return false;
 		}
+		
+		return false;
 	}
 
 	/**
-	 * checks if country isset
+	 * Checks if country isset
 	 *
 	 * @access public
 	 * @since 1.1.0
@@ -174,13 +184,13 @@ class WC_Geolocation_Based_Products_Frontend {
 	public function country_isset( $saved_country ) {
 		if ( isset( $saved_country ) && ! empty( $saved_country ) ) {
 			return true;
-		} else {
-			return false;
 		}
+		
+		return false;
 	}
 
 	/**
-	 * checks if region matches current user's region
+	 * Checks if region matches current user's region
 	 *
 	 * @access public
 	 * @since 1.1.0
@@ -192,13 +202,13 @@ class WC_Geolocation_Based_Products_Frontend {
 
 		if ( isset( $saved_region ) && ! empty( $saved_region ) && strtolower( $saved_region ) === strtolower( $user_region ) ) {
 			return true;
-		} else {
-			return false;
 		}
+		
+		return false;
 	}
 
 	/**
-	 * checks if region isset
+	 * Checks if region isset
 	 *
 	 * @access public
 	 * @since 1.1.0
@@ -208,13 +218,13 @@ class WC_Geolocation_Based_Products_Frontend {
 	public function region_isset( $saved_region ) {
 		if ( isset( $saved_region ) && ! empty( $saved_region ) ) {
 			return true;
-		} else {
-			return false;
 		}
+		
+		return false;
 	}
 
 	/**
-	 * checks if city matches current user's city
+	 * Checks if city matches current user's city
 	 *
 	 * @access public
 	 * @since 1.1.0
@@ -226,13 +236,13 @@ class WC_Geolocation_Based_Products_Frontend {
 
 		if ( isset( $saved_city ) && ! empty( $saved_city ) && strtolower( $saved_city ) === strtolower( $user_city ) ) {
 			return true;
-		} else {
-			return false;
 		}
+		
+		return false;
 	}
 
 	/**
-	 * checks if city isset
+	 * Checks if city isset
 	 *
 	 * @access public
 	 * @since 1.1.0
@@ -242,13 +252,13 @@ class WC_Geolocation_Based_Products_Frontend {
 	public function city_isset( $saved_city ) {
 		if ( isset( $saved_city ) && ! empty( $saved_city ) ) {
 			return true;
-		} else {
-			return false;
 		}
+		
+		return false;
 	}
 
 	/**
-	 * filters the query for output
+	 * Filters the query for output
 	 *
 	 * @access public
 	 * @since 1.0.0
@@ -262,6 +272,7 @@ class WC_Geolocation_Based_Products_Frontend {
 		}
 
 		if ( $this->exclusion ) {
+
 			$taxquery = array(
 				array(
 					'taxonomy' => 'product_cat',
@@ -273,29 +284,160 @@ class WC_Geolocation_Based_Products_Frontend {
 
 			$q->set( 'tax_query', $taxquery );
 
+			// single post
+			if ( is_single() ) {
+
+				$q->set( 'post__not_in', array_unique( array_merge( $this->exclusion['products'], $this->get_product_ids_from_excluded_cats() ) ) );
+
+				return;
+			}
+
 			$q->set( 'post__not_in', $this->exclusion['products'] );
-    	} else {
-    		return;
-    	}
+		}
+
+		return;
 	}
 
 	/**
-	 * filter to hide categories from category view
+	 * Get product ids that are excluded from specific categories
+	 * This is used for single product pages as tax_query doesn't work in single post
+	 *
+	 * @access public
+	 * @since 1.1.4
+	 * @return array $ids
+	 */
+	public function get_product_ids_from_excluded_cats() {
+		$args = array(
+			'tax_query' => array(
+				array(
+					'taxonomy' => 'product_cat',
+					'field'    => 'id',
+					'terms'    => $this->exclusion['product_cats'],
+					'operator' => 'IN'
+				)
+			),
+			'posts_per_page' => -1,
+			'fields'         => 'ids'
+		);
+
+		$ids = new WP_Query( $args );
+
+		wp_reset_postdata();
+		
+		if ( $ids->found_posts > 0 ) {
+			return $ids->posts;
+		}
+
+		return array();
+	}
+
+	/**
+	 * Hide categories from category view
 	 *
 	 * @access public
 	 * @since 1.0.0 
 	 * @return bool
 	 */
-	public function hide_categories_view( $args ) {
+	public function hide_from_categories_view( $args ) {
 		if ( $this->exclusion ) {	
 			$args['exclude'] = implode( ',', $this->exclusion['product_cats'] );
+
+			// this is expensive allow user to not use as they can choose to hide product counts
+			apply_filters( 'woocommerce_geolocation_based_products_update_category_count', add_filter( 'get_terms', array( $this, 'update_category_count' ) ) );
 		}
 
 		return $args;
 	}
 
 	/**
-	 * gets the location data
+	 * Update the product category products count
+	 *
+	 * @access public
+	 * @since 1.1.4
+	 * @return array $terms
+	 */
+	public function update_category_count( $terms ) {
+
+		$i = 0;
+
+		if ( $this->exclusion ) {
+			foreach( $terms as $term_obj ) {
+				$args = array(
+					'tax_query' => array(
+						'relation' => 'AND',
+						array(
+							'taxonomy' => 'product_cat',
+							'field'    => 'id',
+							'terms'    => $term_obj->term_id,
+							'operator' => 'IN'
+						),
+						array(
+							'taxonomy' => 'product_cat',
+							'field'    => 'id',
+							'terms'    => $this->exclusion['product_cats'],
+							'operator' => 'NOT IN'
+						)
+					),
+					'posts_per_page' => -1,
+					'post__not_in'   => $this->exclusion['products'],
+					'fields'         => 'ids'
+				);
+
+				$ids = new WP_Query( $args );
+
+				wp_reset_postdata();
+
+				$terms[ $i ]->count = $ids->found_posts;
+
+				$i++;
+			}
+		}
+
+		return $terms;
+	}
+
+	/**
+	 * Hide products from products widget
+	 *
+	 * @access public
+	 * @since 1.0.0 
+	 * @param array $args
+	 * @return array $args
+	 */
+	public function hide_from_products_widget( $args ) {
+		if ( $this->exclusion ) {
+			$args['post__not_in'] = array_unique( array_merge( $this->exclusion['products'], $this->get_product_ids_from_excluded_cats() ) );
+		}
+
+		return $args;
+	}
+
+	/**
+	 * Hide products from menu
+	 *
+	 * @access public
+	 * @since 1.1.4
+	 * @param array $atts HTML attributes
+	 * @param array $args config of the nav item
+	 * @return array $atts
+	 */
+	public function hide_products_from_menu( $items, $args ) {
+		if ( $this->exclusion ) {
+			foreach( $items as $key => $item ) {
+				if ( in_array( (int) $item->object_id, $this->exclusion['products'] ) 
+					|| in_array( (int) $item->object_id, $this->exclusion['product_cats'] ) 
+					|| in_array( (int) $item->object_id, $this->get_product_ids_from_excluded_cats() )
+				) {
+					unset( $items[ $key ] );
+				}
+			}
+		}
+
+		return $items;
+	}
+
+	/**
+	 * Gets the location data
 	 *
 	 * attribution goes to ip-api.com for making this public API available
 	 *
@@ -321,9 +463,9 @@ class WC_Geolocation_Based_Products_Frontend {
 
 		if ( isset( $response_body['status'] ) && $response_body['status'] === 'success' ) {
 			return $response_body;
-		} else {
-			return;
 		}
+
+		return;
 	}
 }
 
